@@ -84,22 +84,19 @@ def coleta_dados():
         for link_anuncio in links_anuncios['link'].tolist():
 
             # time.sleep(2)
+            chrome_options = Options()
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            driver = webdriver.Chrome(options=chrome_options)
 
-            anuncio_info_aux = get_anuncio_infos(link_anuncio)
+            anuncio_info_aux = get_anuncio_infos(link_anuncio, driver)
 
             anuncios_infos.append(anuncio_info_aux)
                 
         return pd.DataFrame(anuncios_infos)
 
-    def get_anuncio_infos(link_anuncio):
-        
-        chrome_options = Options()
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--headless')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--disable-gpu')
-        chrome_options.add_argument("--disable-notifications")
-        driver = webdriver.Chrome(options=chrome_options)
+    def get_anuncio_infos(link_anuncio, driver):
 
         driver.get(link_anuncio)
         # print(link_anuncio)
@@ -133,8 +130,6 @@ def coleta_dados():
             anuncio_infos['descricao'] = page.findAll('div', {'class':'description'})[0].text
         except:
             anuncio_infos['descricao'] = np.nan
-
-        driver.quit()
 
         return anuncio_infos
 
