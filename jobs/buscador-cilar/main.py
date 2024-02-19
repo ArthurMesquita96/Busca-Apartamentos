@@ -88,13 +88,14 @@ def coleta_dados():
 
         anuncio_info_aux = {}
 
+        anuncio_info_aux['site'] = 'Cilar'
+        anuncio_info_aux['data_coleta'] = datetime.datetime.today().strftime("%Y-%m-%d")
+
         try:
             # titulo
             anuncio_info_aux['titulo'] = soup.findAll('h1', {'class':'title title-default'})[0].text
         except:
             anuncio_info_aux['titulo'] = np.nan
-
-        anuncio_info_aux['data_coleta'] = datetime.datetime.today().strftime("%Y-%m-%d")
 
         try:
         # titulo
@@ -207,6 +208,7 @@ def feature_engineering(df):
     df['aluguel'] = df['aluguel'].apply(lambda x: x if isinstance(x,float) else int(x.replace('Aluguel','').replace('R$','').replace(',00','').replace('.','')))
     df['condominio'] = df['condominio'].apply(lambda x: x if isinstance(x, float) else float(x.replace('Condominio  ','').replace('R$ ', '').replace('.','').replace(',','.')))
     df['iptu'] = df['iptu'].apply(lambda x: x if isinstance(x, float) else float(x.replace('IPTU  ','').replace('R$ ','').replace('.',',').replace(',','.')))
+    df['seguro_incendico'] = 0
 
     def extrai_valores_string(string,substring):
 
@@ -249,26 +251,30 @@ def feature_engineering(df):
     df['salao_de_festa'] = df['detalhes_condominio'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'salao de festa' in unidecode(x.lower()) else 'Não')
 
     columns_selected = [
+    'site',
     'titulo',
     'link',
+    'data_coleta',
     'endereco',
-    'aluguel',
-    'condominio',
-    'iptu',
     'catacteristicas_imovel',
     'detalhes_condominio',
+    'bairro',
+    'cidade',
+    'aluguel',
+    'condominio',
+    'seguro_incendio',
+    'iptu',
     'area',
     'quartos',
     'suites',
     'banheiros',
-    'andar',
     'vagas_garagem',
-    'bairro',
-    'cidade',
     'mobiliado',
     'piscina',
     'academia',
     'sacada',
+    'churrasqueira',
+    'salao_de_festas'
     ]
 
     BUCKET_NAME = 'busca-apartamentos-trusted'

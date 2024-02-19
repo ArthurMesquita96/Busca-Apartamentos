@@ -126,7 +126,7 @@ def coleta_dados():
         except:
             anuncio_infos['valores'] = np.nan
         try:
-            anuncio_infos['atributos'] = ', '.join([i.text for i in page.findAll('span', {'class':'highlight-value'})])
+            anuncio_infos['atributos'] = ', '.join([i.text for i in page.findAll('li',{'class':'highlight'})]).replace('\n','').replace('                        ',' ').replace('                      ', ' ').replace('(','').replace(')','').strip().replace('  ',', ')
         except:
             anuncio_infos['atributos'] = np.nan
         try:
@@ -204,13 +204,15 @@ def feature_engineering(df):
     # Atributos do imóvel
     df['area'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('m²', x.split(', ')))
     df['banheiros'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('banheiro', x.split(', ')))
-    df['vagas_garagem'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('vagas', x.split(', ')))
+    df['vagas_garagem'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('vaga', x.split(', ')))
     df['quartos'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('quarto', x.split(', ')))
+    df['suites'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('suite', x.split(', ')))
 
     df['area'] = df['area'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
     df['banheiros'] = df['banheiros'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
     df['vagas_garagem'] = df['vagas_garagem'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
     df['quartos'] = df['quartos'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
+    df['suites'] = df['suites'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
 
     # Valores
     df['aluguel'] = df['valores'].apply(lambda x: x if isinstance(x,float) else busca_substring('Aluguel',separa_valores_imovel(x)))
@@ -225,7 +227,6 @@ def feature_engineering(df):
     df['valor_total'] = df['aluguel'] + df['condominio'] + df['seguro_incendio'] + df['iptu']
 
     # Detalhes do imóvel/condomínio
-    # Detalhes do imóvel/condomínio
     df['mobiliado'] = df['descricao'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'mobiliado' in unidecode(x.lower()) else 'Não')
     df['piscina'] = df['descricao'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'piscina' in unidecode(x.lower()) else 'Não')
     df['academia'] = df['descricao'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'academia' in unidecode(x.lower()) else 'Não')
@@ -235,22 +236,23 @@ def feature_engineering(df):
     
     columns_selected = [
     'site',
+    'titulo',
     'link',
     'data_coleta',
-    'titulo',
     'endereco',
     'atributos',
     'descricao',
     'bairro',
     'cidade',
-    'area',
-    'banheiros',
-    'vagas_garagem',
-    'quartos',
     'aluguel',
     'condominio',
     'seguro_incendio',
     'iptu',
+    'area',
+    'quartos',
+    'suites',
+    'banheiros',
+    'vagas_garagem',
     'mobiliado',
     'piscina',
     'academia',
