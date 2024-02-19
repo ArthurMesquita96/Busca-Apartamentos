@@ -1,0 +1,154 @@
+import base64
+import functions_framework
+import numpy as np
+import pandas as pd
+import bs4
+import requests
+import datetime
+from selenium.webdriver.common.by import By
+from selenium import webdriver
+import time
+import bs4
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
+from google.cloud import storage
+
+# Triggered from a message on a Cloud Pub/Sub topic.
+@functions_framework.cloud_event
+def hello_pubsub(cloud_event):
+
+    def get_vitrine(LINK):
+        chrome_options = Options()
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+
+        driver = webdriver.Chrome(options = chrome_options)
+        driver.get(LINK)
+
+        # LINK =  "https://www.apolar.com.br/alugar/apartamento/curitiba?mensal"
+        # driver.maximize_window()
+
+        SCROLL_PAUSE_TIME = 5
+
+        # Get scroll height
+        last_height = driver.execute_script("return document.body.scrollHeight")
+
+        while True:
+            # Scroll down to bottom
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+            try:
+                load_more = driver.find_element(By.CLASS_NAME, 'load-more')
+                load_more.click()
+            except:
+                pass
+
+            # Wait to load page
+            time.sleep(SCROLL_PAUSE_TIME)
+
+            
+            # Calculate new scroll height and compare with last scroll height
+            new_height = driver.execute_script("return document.body.scrollHeight")
+
+
+            if new_height == last_height:
+                break
+            last_height = new_height
+            print('scroll')
+
+        soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+
+        return soup
+
+    def get_anuncio_link(anuncio):
+        anuncio_info = {}
+        anuncio_info['link'] = anuncio.findAll('a')[-1]['href']
+
+        return anuncio_info
+
+    def get_anuncios_links(lista_de_anuncios):
+        anuncio_list = []
+        for anuncio in lista_de_anuncios:
+
+            anuncio_aux = get_anuncio_link(anuncio)
+
+            anuncio_list.append(anuncio_aux)
+
+        return pd.DataFrame(anuncio_list)
+
+    def get_anuncios_infos(links_anuncios):
+        anuncios_infos = []
+        chrome_options = Options()
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--headless')
+        driver = webdriver.Chrome(options=chrome_options)
+        for link_anuncio in links_anuncios['link'].tolist():
+
+            time.sleep(2)
+
+            anuncio_info_aux = get_anuncio_infos(driver,link_anuncio)
+
+            anuncios_infos.append(anuncio_info_aux)
+        
+        driver.quit()
+        
+        return pd.DataFrame(anuncios_infos)
+
+    def get_anuncio_infos(driver, LINK):
+        driver.get(LINK)
+        print(LINK)
+        time.sleep(2)
+        page = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+        anuncio_infos = {}
+
+        try:
+            anuncio_infos['titulo'] = page.findAll('h1', {'class':'property-title'})[0].text
+        except:
+            anuncio_infos['titulo'] = np.nan
+        try:
+            anuncio_infos['endereco'] = page.findAll('a', {'class':'property-address'})[0].text
+        except:
+            anuncio_infos['endereco'] = np.nan
+        try:
+            anuncio_infos['valores'] = page.findAll('table', {'class':'sohtectable-style'})[0].text
+        except:
+            anuncio_infos['valores'] = np.nan
+        try:
+            anuncio_infos['atrubutos'] = page.findAll('span', {'class':'highlight-value'})
+        except:
+            anuncio_infos['atrubutos'] = np.nan
+        try:
+            anuncio_infos['descricao'] = page.findAll('div', {'class':'description'})[0].text
+        except:
+            anuncio_infos['descricao'] = np.nan
+
+        return anuncio_infos
+
+    LINK = "https://www.apolar.com.br/alugar/apartamento/curitiba?mensal"
+
+    vitrine = get_vitrine(LINK)
+
+    lista_de_anuncios = vitrine.findAll('div',{'class':'property-component'})
+
+    links_anuncios = get_anuncios_links(lista_de_anuncios)
+
+    anuncios = get_anuncios_infos(links_anuncios)
+
+    BUCKET_NAME = 'loyalts-customers'
+    FILE_NAME = 'buscador-apolar.csv'
+    TEMP_FILE = 'local.csv'
+    RAW_PATH = '/tmp/{}'.format(TEMP_FILE)
+
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(BUCKET_NAME)
+
+    # links_anuncios = pd.DataFrame(links_anuncios)
+    anuncios.to_csv(RAW_PATH, index=False)
+    blob = bucket.blob(FILE_NAME)
+    blob.upload_from_filename(RAW_PATH)
+
+    # Print out the data from Pub/Sub, to prove that it worked
+    return print(anuncios)

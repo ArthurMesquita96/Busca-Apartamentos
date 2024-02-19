@@ -1,0 +1,12 @@
+Flask==3.0.0
+gunicorn==21.2.0
+Werkzeug==3.0.1
+google-cloud-storage
+pyarrow
+pandas
+numpy
+bs4
+selenium
+webdriver_manager
+chromedriver-binary
+unidecode
