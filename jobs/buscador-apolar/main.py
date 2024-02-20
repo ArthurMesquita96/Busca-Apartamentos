@@ -34,7 +34,7 @@ def coleta_dados():
         last_height = driver.execute_script("return document.body.scrollHeight")
 
         while True:
-        # for i in range(5):
+        # for i in range(10):
             # Scroll down to bottom
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
@@ -191,6 +191,8 @@ def feature_engineering(df):
             list_values.append(f'{nome}: {valor}')
         
         return list_values
+    
+    #### FEATURES #######
 
     # Localidade
     df['bairro'] = df['endereco'].apply(lambda x: x if isinstance(x,float) else x.split(', ')[2].split(' - ')[0])
@@ -228,6 +230,19 @@ def feature_engineering(df):
     df['sacada'] = df['descricao'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'sacada' in unidecode(x.lower()) else 'Não')
     df['churrasqueira'] = df['descricao'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'churrasqueira' in unidecode(x.lower()) else 'Não')
     df['salao_de_festas'] = df['descricao'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'salao de festas' in unidecode(x.lower()) else 'Não')
+
+    ####### TRATAMENTO FINAL DE DADOS ######
+
+    ## Preenchendo valores nulos
+    df['cidade'] = df['cidade'].fillna('Curitiba')
+    df[['aluguel','condominio','seguro_incendio','iptu']] = df[['aluguel','condominio','seguro_incendio','iptu']].fillna(0)
+    df[['area','quartos','suites','banheiros','vagas_garagem']] = df[['area','quartos','suites','banheiros','vagas_garagem']].fillna(0)
+
+    ## Transformando dtypes
+    df['data_coleta'] = pd.to_datetime(df['data_coleta'])
+    df['cidade'] = df['cidade'].apply(lambda x: x if isinstance(x,float) else unidecode(x.capitalize())).astype('category')
+    df['bairro'] = df['bairro'].apply(lambda x: x if isinstance(x,float) else unidecode(x.capitalize())).astype('category')
+    df[['area','quartos','suites','banheiros','vagas_garagem']] = df[['area','quartos','suites','banheiros','vagas_garagem']].astype('int64')
     
     columns_selected = [
     'site',
@@ -243,6 +258,7 @@ def feature_engineering(df):
     'condominio',
     'seguro_incendio',
     'iptu',
+    'valor_total',
     'area',
     'quartos',
     'suites',
