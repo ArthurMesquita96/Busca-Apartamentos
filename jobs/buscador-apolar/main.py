@@ -24,6 +24,7 @@ def coleta_dados():
         
         driver = webdriver.Chrome(options = chrome_options)
         driver.get(LINK)
+        time.sleep(5)
        
         # LINK =  "https://www.apolar.com.br/alugar/apartamento/curitiba?mensal"
         # driver.maximize_window()
@@ -34,7 +35,7 @@ def coleta_dados():
         last_height = driver.execute_script("return document.body.scrollHeight")
 
         while True:
-        # for i in range(10):
+        #for i in range(10):
             # Scroll down to bottom
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
@@ -93,6 +94,8 @@ def coleta_dados():
             anuncio_info_aux = get_anuncio_infos(link_anuncio, driver)
 
             anuncios_infos.append(anuncio_info_aux)
+
+            driver.quit()
                 
         return pd.DataFrame(anuncios_infos)
 
@@ -119,7 +122,7 @@ def coleta_dados():
         except:
             anuncio_infos['endereco'] = np.nan
         try:
-            anuncio_infos['valores'] = page.findAll('table', {'class':'sohtectable-style'})[0].text
+            anuncio_infos['valores'] = ', '.join([i.text.replace('A partir de','Aluguel').replace('   ','').replace('\n','') .replace('Outros valores','').replace('/mês','').replace('  ',', ').strip() for i in page.findAll('div',{'class':'price-box'})])
         except:
             anuncio_infos['valores'] = np.nan
         try:
@@ -130,18 +133,26 @@ def coleta_dados():
             anuncio_infos['descricao'] = page.findAll('div', {'class':'description'})[0].text
         except:
             anuncio_infos['descricao'] = np.nan
+        try:
+            anuncio_infos['ficha_tecnica'] = ', '.join([i.text for i in page.find_all('ul',{'class','property-details'})[0]]).replace('\n                        ','')
+        except:
+            anuncio_infos['ficha_tecnica'] = np.nan
 
         return anuncio_infos
 
 
     LINK = "https://www.apolar.com.br/alugar/apartamento/curitiba?mensal"
 
+    print('Coletando dados da vitrine')
     vitrine = get_vitrine(LINK)
 
     lista_de_anuncios = vitrine.findAll('div',{'class':'property-component'})
-
+    print('Coletando links de todos os anuncios')
     links_anuncios = get_anuncios_links(lista_de_anuncios)
+    print('Todos os links coletados!')
+    print(links_anuncios)
 
+    print('Coletando informações dos anuncios individualmente')
     anuncios = get_anuncios_infos(links_anuncios)
 
     BUCKET_NAME = 'busca-apartamentos-bucket'
@@ -159,6 +170,8 @@ def coleta_dados():
     return anuncios
 
 def feature_engineering(df):
+
+    print('Iniciando feature engineering')
 
     df['titulo'] = df['titulo'].str.strip()
     df['endereco'] = df['endereco'].str.strip()
@@ -196,23 +209,26 @@ def feature_engineering(df):
 
     # Localidade
     df['bairro'] = df['endereco'].apply(lambda x: x if isinstance(x,float) else x.split(', ')[2].split(' - ')[0])
-    df['cidade'] = df['endereco'].apply(lambda x: x if isinstance(x,float) else x.split(', ')[2].split(' -')[1])
+    try:
+        df['cidade'] = df['endereco'].apply(lambda x: x if isinstance(x,float) else x.split(', ')[2].split(' - ')[-1])
+    except:
+        df['cidade'] = np.nan
 
     # Atributos do imóvel
     df['area'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('m²', x.split(', ')))
     df['banheiros'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('banheiro', x.split(', ')))
-    df['vagas_garagem'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('vaga', x.split(', ')))
+    # df['vagas_garagem'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('vaga', x.split(', ')))
     df['quartos'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('quarto', x.split(', ')))
     df['suites'] = df['atributos'].apply(lambda x: x if isinstance(x,float) else busca_substring('suite', x.split(', ')))
 
     df['area'] = df['area'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
     df['banheiros'] = df['banheiros'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
-    df['vagas_garagem'] = df['vagas_garagem'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
+    df['vagas_garagem'] = df['ficha_tecnica'].apply(lambda x: x if isinstance(x,float) else busca_substring('Garagem', x.replace(':','').split(', ')))
     df['quartos'] = df['quartos'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
     df['suites'] = df['suites'].apply(lambda x: np.nan if isinstance(x, float) else x.split(' ')[0]).astype('float64')
 
     # Valores
-    df['aluguel'] = df['valores'].apply(lambda x: x if isinstance(x,float) else busca_substring('Aluguel',separa_valores_imovel(x)))
+    df['aluguel'] = df['valores'].apply(lambda x: x if isinstance(x,float) else x.split(', ')[0].replace('R$ ',''))
     df['condominio'] = df['valores'].apply(lambda x: x if isinstance(x,float) else busca_substring('Condomínio',separa_valores_imovel(x)))
     df['seguro_incendio'] = df['valores'].apply(lambda x: x if isinstance(x,float) else busca_substring('Incêndio',separa_valores_imovel(x)))
     df['iptu'] = df['valores'].apply(lambda x: x if isinstance(x,float) else busca_substring('IPTU',separa_valores_imovel(x)))
@@ -221,7 +237,6 @@ def feature_engineering(df):
     df['condominio'] = df['condominio'].apply(lambda x: x if isinstance(x,float) else x.replace(',00', '').replace('.','').replace(',','.')).astype('float64')
     df['seguro_incendio'] = df['seguro_incendio'].apply(lambda x: x if isinstance(x,float) else x.replace(',00', '').replace('.','').replace(',','.')).astype('float64')
     df['iptu'] = df['iptu'].apply(lambda x: x if isinstance(x,float) else x.replace(',00', '').replace('.','').replace(',','.')).astype('float64')
-    df['valor_total'] = df['aluguel'] + df['condominio'] + df['seguro_incendio'] + df['iptu']
 
     # Detalhes do imóvel/condomínio
     df['mobiliado'] = df['descricao'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'mobiliado' in unidecode(x.lower()) else 'Não')
@@ -234,15 +249,20 @@ def feature_engineering(df):
     ####### TRATAMENTO FINAL DE DADOS ######
 
     ## Preenchendo valores nulos
-    df['cidade'] = df['cidade'].fillna('Curitiba')
-    df[['aluguel','condominio','seguro_incendio','iptu']] = df[['aluguel','condominio','seguro_incendio','iptu']].fillna(0)
-    df[['area','quartos','suites','banheiros','vagas_garagem']] = df[['area','quartos','suites','banheiros','vagas_garagem']].fillna(0)
+    # df['cidade'] = df['cidade'].fillna('Curitiba')
+    # df[['aluguel','condominio','seguro_incendio','iptu']] = df[['aluguel','condominio','seguro_incendio','iptu']].fillna(0)
+    # df[['area','quartos','suites','banheiros','vagas_garagem']] = df[['area','quartos','suites','banheiros','vagas_garagem']].fillna(0)
 
     ## Transformando dtypes
     df['data_coleta'] = pd.to_datetime(df['data_coleta'])
     df['cidade'] = df['cidade'].apply(lambda x: x if isinstance(x,float) else unidecode(x.capitalize())).astype('category')
     df['bairro'] = df['bairro'].apply(lambda x: x if isinstance(x,float) else unidecode(x.capitalize())).astype('category')
-    df[['area','quartos','suites','banheiros','vagas_garagem']] = df[['area','quartos','suites','banheiros','vagas_garagem']].astype('int64')
+    df[['area','quartos','suites','banheiros','vagas_garagem']] = df[['area','quartos','suites','banheiros','vagas_garagem']].astype('float64')
+    df[['aluguel','condominio','seguro_incendio','iptu']] = df[['aluguel','condominio','seguro_incendio','iptu']].astype('float64')
+
+    # df['valor_total'] = df['aluguel'] + df['condominio'] + df['seguro_incendio'] + df['iptu']
+
+    df = df.loc[df['cidade'] == 'Curitiba']
     
     columns_selected = [
     'site',
@@ -258,7 +278,6 @@ def feature_engineering(df):
     'condominio',
     'seguro_incendio',
     'iptu',
-    'valor_total',
     'area',
     'quartos',
     'suites',
@@ -271,6 +290,8 @@ def feature_engineering(df):
     'churrasqueira',
     'salao_de_festas'
     ]
+
+    print('Salvando dados no bucket trusted')
 
     BUCKET_NAME = 'busca-apartamentos-trusted'
     FILE_NAME = f'{datetime.datetime.today().strftime("%Y-%m-%d")} - apartamentos - apolar.csv'

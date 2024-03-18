@@ -135,9 +135,9 @@ def coleta_dados():
 
         try:
             # características do imóvel
-            anuncio_info_aux['catacteristicas_imovel'] = ' '.join([i.text for i in soup.findAll('article',{'class':'col-md-7 col-lg-8 details-property'})[0].findAll('p')[0]])
+            anuncio_info_aux['caracteristicas_imovel'] = ' '.join([i.text for i in soup.findAll('article',{'class':'col-md-7 col-lg-8 details-property'})[0].findAll('p')[0]])
         except:
-            anuncio_info_aux['catacteristicas_imovel'] = np.nan
+            anuncio_info_aux['caracteristicas_imovel'] = np.nan
         
         try:
             # detalhes do condominio
@@ -207,7 +207,7 @@ def feature_engineering(df):
                                                 x['condominio'] if (isinstance(x['condominio'],float)) else 
                                                 np.nan if ('IPTU' in x['condominio']) else x['condominio'], axis = 1)
 
-    df['aluguel'] = df['aluguel'].apply(lambda x: x if isinstance(x,float) else int(x.replace('Aluguel','').replace('R$','').replace(',00','').replace('.','')))
+    df['aluguel'] = df['aluguel'].apply(lambda x: x if isinstance(x,float) else int(x.replace('Aluguel','').replace('R$ ','').replace(',00','').replace('.','').split(',')[0]))
     df['condominio'] = df['condominio'].apply(lambda x: x if isinstance(x, float) else float(x.replace('Condominio  ','').replace('R$ ', '').replace('.','').replace(',','.')))
     df['iptu'] = df['iptu'].apply(lambda x: x if isinstance(x, float) else float(x.replace('IPTU  ','').replace('R$ ','').replace('.',',').replace(',','.')))
     df['seguro_incendio'] = 0
@@ -240,27 +240,26 @@ def feature_engineering(df):
     df['suites'] = df['detalhes'].apply(lambda x: x if isinstance(x,float) else extrai_valores_string(x,'Suítes'))
     df['banheiros'] = df['detalhes'].apply(lambda x: x if isinstance(x,float) else extrai_valores_string(x,'Banheiros'))
     df['andar'] = df['detalhes'].apply(lambda x: x if isinstance(x,float) else extrai_valores_string(x,'Andar'))
-    df['vagas_garagem'] = df['detalhes'].apply(lambda x: x if isinstance(x,float) else extrai_valores_string(x,'Vagas'))
+    df['vagas_garagem'] = df['mais_detalhes_imovel'].apply(lambda x: 0 if pd.isnull(x) else extrai_valores_string(x,'Vagas de garagem:'))
 
     # Localidade
     df['bairro'] = df['endereco'].apply(lambda x: x if isinstance(x,float) else x.split(' - ')[-2])
     df['cidade'] = df['endereco'].apply(lambda x: x if isinstance(x,float) else x.split(' - ')[-1])
 
     # Atributos do imóvel e condomínio
-    df['mobiliado'] = df['catacteristicas_imovel'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'mobiliado' in unidecode(x.lower()) else 'Não')
+    df['mobiliado'] = df['caracteristicas_imovel'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'mobiliado' in unidecode(x.lower()) else 'Não')
     df['piscina'] = df['detalhes_condominio'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'piscina' in unidecode(x.lower()) else 'Não')
     df['academia'] = df['detalhes_condominio'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'academia' in unidecode(x.lower()) else 'Não')
-    df['sacada'] = df['catacteristicas_imovel'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'sacada' in unidecode(x.lower()) else 'Não')
+    df['sacada'] = df['caracteristicas_imovel'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'sacada' in unidecode(x.lower()) else 'Não')
     df['churrasqueira'] = df['detalhes_condominio'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'churrasqueira' in unidecode(x.lower()) else 'Não')
     df['salao_de_festas'] = df['detalhes_condominio'].apply(lambda x: np.nan if isinstance(x,float) else 'Sim' if 'salao de festa' in unidecode(x.lower()) else 'Não')
 
     #### TRATAMENTO FINAL DE DADOS ####
 
     ## Preenchendo valores nulos
-    df[['aluguel','condominio','seguro_incendio','iptu']] = df[['aluguel','condominio','seguro_incendio','iptu']].fillna(0)
-    df['cidade'] = df['cidade'].fillna('Curitiba')
-    df[['area','quartos','suites','banheiros','vagas_garagem']] = df[['area','quartos','suites','banheiros','vagas_garagem']].fillna(0)
-    df[['aluguel','condominio','seguro_incendio','iptu']] = df[['aluguel','condominio','seguro_incendio','iptu']].fillna(0)
+    # df[['aluguel','condominio','seguro_incendio','iptu']] = df[['aluguel','condominio','seguro_incendio','iptu']].fillna(0)
+    # df['cidade'] = df['cidade'].fillna('Curitiba')
+    # df[['area','quartos','suites','banheiros','vagas_garagem']] = df[['area','quartos','suites','banheiros','vagas_garagem']].fillna(0)
 
     ## Transformando dtypes
     df['data_coleta'] = pd.to_datetime(df['data_coleta'])
@@ -270,7 +269,7 @@ def feature_engineering(df):
 
     #### ULTIMAS FEATURES
 
-    df['valor_total'] = df['aluguel'] + df['condominio'] + df['seguro_incendio'] + df['iptu']
+    # df['valor_total'] = df['aluguel'] + df['condominio'] + df['seguro_incendio'] + df['iptu']
 
     columns_selected = [
     'site',
@@ -278,15 +277,15 @@ def feature_engineering(df):
     'link',
     'data_coleta',
     'endereco',
-    'catacteristicas_imovel',
+    'caracteristicas_imovel',
     'detalhes_condominio',
+    'mais_detalhes_imovel',
     'bairro',
     'cidade',
     'aluguel',
     'condominio',
     'seguro_incendio',
     'iptu',
-    'valor_total'
     'area',
     'quartos',
     'suites',
