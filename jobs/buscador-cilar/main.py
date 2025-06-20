@@ -316,4 +316,4 @@ def feature_engineering(df):
 
 if __name__ == "__main__":
     anuncios = coleta_dados()
-    feature_engineering(anuncios)
+    # feature_engineering(anuncios)

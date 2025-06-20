@@ -177,6 +177,8 @@ def feature_engineering(df):
     df['endereco'] = df['endereco'].str.strip()
     df['descricao'] = df['descricao'].str.strip().str.replace('  ', '').str.replace('\n',' ')
 
+    df = df.loc[df['titulo'] != '']
+
     def busca_substring(substring, string_list):
         result = np.nan
         for s in string_list:
@@ -310,4 +312,4 @@ def feature_engineering(df):
 
 if __name__ == "__main__":
     anuncios = coleta_dados()
-    feature_engineering(anuncios)
+    #feature_engineering(anuncios)

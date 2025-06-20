@@ -80,6 +80,9 @@ Link: {x['link']}
     return apartamentos_entrantes
 
 def send_message_telegram(apartamentos_entrantes):
+
+    apartamentos_entrantes = apartamentos_entrantes.loc[(apartamentos_entrantes['aluguel'] + apartamentos_entrantes['condominio']) <= 2000]
+
     TOKEN = '6807526969:AAHh2qyButkfg8ofvYWRHa0XUJXQVP3a4yM'
     chat_id = 620603429
     text = f"Relatório de Apartamentos Novos de {datetime.today().strftime('%Y-%m-%d')}"
